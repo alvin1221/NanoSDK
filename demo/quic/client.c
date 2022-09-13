@@ -51,6 +51,12 @@ static int send_q_sz = 0;
 
 static nng_socket * g_sock;
 
+void
+fatal(const char *msg, int rv)
+{
+	fprintf(stderr, "%s: %s\n", msg, nng_strerror(rv));
+}
+
 static inline void
 put_send_q(nng_msg *msg)
 {
@@ -129,18 +135,22 @@ connect_cb(void *rmsg, void * arg)
 		msg = get_send_q();
 		nng_sendmsg(*g_sock, msg, NNG_FLAG_ALLOC);
 	}
+	return 0;
 }
 
 static int
 disconnect_cb(void *rmsg, void * arg)
 {
-	printf("[Disconnected][%s]...\n", (char *)arg);
+	// printf("[Disconnected][%s]...\n", (char *)arg);
+	printf("[Disconnected]...\n");
+	return 0;
 }
 
 static int
 msg_send_cb(void *rmsg, void * arg)
 {
 	printf("[Msg Sent][%s]...\n", (char *)arg);
+	return 0;
 }
 
 static int
@@ -155,6 +165,56 @@ msg_recv_cb(void *rmsg, void * arg)
 
 	printf("topic   => %.*s\n"
 	       "payload => %.*s\n",topicsz, topic, payloadsz, payload);
+
+	return (0);
+}
+
+static int
+sqlite_config(nng_socket *sock, uint8_t proto_ver)
+{
+#if defined(NNG_SUPP_SQLITE)
+	int rv;
+	// create sqlite option
+	nng_mqtt_sqlite_option *sqlite;
+	if ((rv = nng_mqtt_alloc_sqlite_opt(&sqlite)) != 0) {
+		fatal("nng_mqtt_alloc_sqlite_opt", rv);
+	}
+	// set sqlite option
+	nng_mqtt_set_sqlite_enable(sqlite, true);
+	nng_mqtt_set_sqlite_flush_threshold(sqlite, 10);
+	nng_mqtt_set_sqlite_max_rows(sqlite, 20);
+	nng_mqtt_set_sqlite_db_dir(sqlite, "/tmp/nanomq");
+
+	// init sqlite db
+	nng_mqtt_sqlite_db_init(sqlite, "mqtt_quic_client.db", proto_ver);
+
+	// set sqlite option pointer to socket
+	return nng_socket_set_ptr(*sock, NNG_OPT_MQTT_SQLITE, sqlite);
+#else
+	return (0);
+#endif
+}
+
+//TODO remove before submitting PR
+static void
+send_message_interval(void *arg)
+{
+	nng_socket *sock = arg;
+	nng_msg *   pub_msg;
+	nng_mqtt_msg_alloc(&pub_msg, 0);
+
+	nng_mqtt_msg_set_packet_type(pub_msg, NNG_MQTT_PUBLISH);
+	nng_mqtt_msg_set_publish_topic(pub_msg, "topic123");
+	nng_mqtt_msg_set_publish_payload(
+	    pub_msg, (uint8_t *) "offline message", strlen("offline message"));
+
+	for (;;) {
+		nng_msleep(2000);
+		nng_msg *dup_msg;
+		nng_msg_dup(&dup_msg, pub_msg);
+		nng_sendmsg(*sock, dup_msg, NNG_FLAG_ALLOC);
+		printf("sending message\n");
+	}
 }
 
 int
@@ -175,6 +235,8 @@ client(int type, const char *url, const char *qos, const char *topic, const char
 		printf("error in quic client cb set.\n");
 	}
 	g_sock = &sock;
+
+	sqlite_config(g_sock, MQTT_PROTOCOL_VERSION_v311);
 
 	// MQTT Connect...
 	msg = mqtt_msg_compose(1, 0, NULL, NULL);
@@ -198,6 +260,9 @@ client(int type, const char *url, const char *qos, const char *topic, const char
 	case 3:
 		msg = mqtt_msg_compose(3, q, (char *)topic, (char *)data);
 		put_send_q(msg);
+		//TODO remove before submitting PR
+		nng_thread *thread;
+		nng_thread_create(&thread, send_message_interval, &sock);
 		break;
 	default:
 		printf("Unknown command.\n");
@@ -236,4 +301,5 @@ main(int argc, char **argv)
 		client(3, argv[2], argv[3], argv[4], argv[5]);
 
 	printf_helper(argv[0]);
+	return 0;
 }
