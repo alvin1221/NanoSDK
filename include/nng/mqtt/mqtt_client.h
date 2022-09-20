@@ -524,8 +524,8 @@ NNG_DECL nng_mqtt_client *nng_mqtt_client_alloc(nng_socket*, nng_mqtt_cb_opt*, b
 NNG_DECL void nng_mqtt_client_free(nng_mqtt_client*, bool);
 NNG_DECL int nng_mqtt_subscribe(nng_socket*, nng_mqtt_topic_qos *, size_t, property *);
 NNG_DECL int nng_mqtt_subscribe_async(nng_mqtt_client *, nng_mqtt_topic_qos *, size_t, property *);
-NNG_DECL int nng_mqtt_unsubscribe(nng_socket*, nng_mqtt_topic_qos *, size_t, property *);
-NNG_DECL int nng_mqtt_unsubscribe_async(nng_mqtt_client *, nng_mqtt_topic_qos *sbs, size_t count, property *pl);
+NNG_DECL int nng_mqtt_unsubscribe(nng_socket*, nng_mqtt_topic *, size_t, property *);
+NNG_DECL int nng_mqtt_unsubscribe_async(nng_mqtt_client *, nng_mqtt_topic *sbs, size_t count, property *pl);
 NNG_DECL int nng_mqtt_disconnect(nng_socket *, uint8_t, property*);
 
 #ifdef __cplusplus
