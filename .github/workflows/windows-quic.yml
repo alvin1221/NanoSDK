@@ -11,13 +11,14 @@ jobs:
       with:
         submodules: recursive
 
-    - name: Configure
-      run: |
-        cmake -B build -DNNG_ENABLE_QUIC=ON -DQUIC_BUILD_SHARED=OFF \
-        -DCMAKE_CXX_COMPILER=C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.34.31933/bin/Hostx64/x64/cl.exe
+    - uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Build
-      run: cmake --build build
+    - name: Configure and build
+      run: |
+          mkdir build 
+          cd build
+          cmake -G "Visual Studio 17 2022" -DNNG_ENABLE_QUIC=ON -DQUIC_BUILD_SHARED=OFF ..
+          cmake --build .
 
     - name: Test
       run: |
