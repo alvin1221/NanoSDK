@@ -1,0 +1,24 @@
+name: windows-quic
+on: [push, pull_request]
+jobs:
+
+  build:
+    name: build
+    runs-on: [ windows-latest ]
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Configure
+      run: cmake -B build -DNNG_ENABLE_QUIC=ON -DQUIC_BUILD_SHARED=OFF
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Test
+      run: |
+        cd build
+        ctest -C Debug --output-on-failure
+
